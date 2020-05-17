@@ -1,0 +1,2123 @@
+---
+title: "TimeSeries"
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r listing libraries, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(forecast)
+library(chron)
+library(lubridate)
+library(lattice)
+library(ggplot2)
+library(readr)
+library(zoo)
+library(tidyr)
+library(tseries)
+library(lmtest)
+library("TTR")
+```
+# Time Series Introduction
+
+## Data Preparation
+
+ITstore_bidaily has been uploaded; data contains time stamp in column 1 (every unit represents 5 hours which are either in the morning or in the afternoon; a week has 6 days)
+
+```{r data connection, message=FALSE, warning=FALSE}
+library(readr)
+ITstore_bidaily <- read_delim("~/Downloads/ITstore-bidaily.csv", 
+    ";", escape_double = FALSE, col_names = FALSE, 
+    trim_ws = TRUE)
+```
+
+```{r}
+myts <- ITstore_bidaily
+```
+
+Data will be transfered to time series object thanks to ts() function. Start represents the starting point for the time stamp. Frequency is number of observations per cycle => 1 week contains 12 observation.
+
+```{r Conversion to a time series}
+mycounts <- ts(myts$X2, start=1, frequency = 12)
+```
+
+## Visualisation of dataset
+
+```{r plotting time series}
+# using Rbase
+plot(mycounts, ylab="Customer Counts",
+     xlab="weeks")
+```
+
+There is no trend (it doesn't go upwards), it is clean dataset, without missing data, outliers or other error.
+
+```{r Visualisation of month plot}
+# library(forecast)
+# Calculates the average for each time unit. The unit of time doesn't necessarily have to be *month!!!!*, 12 half day   units per week
+
+monthplot(mycounts, labels=1:12, xlab="Bidaily Units")
+```
+
+Graph above represents 12 observations starting with Monday morning, followed by Monday afternoon and ending by Saturday afternoon. We can see that half days at the end of the week has much higher customer counts than the mornings of other week days.
+
+```{r visualisation of seasons (weeks)}
+seasonplot(mycounts, season.labels=F, xlab="")
+```
+This graph shows that end of the week is the week when customers are coming to the store.
+
+*Month Plot* - compares the single time units within the seasonal unit
+
+*Season Plot* - Compares the seasonal units (cycles) to one another
+
+Result: There is no trend in dataset but there is clear seasonal pattern. Simple models woudn't be able to catch seasonality (such as last observation carried forward or mean method).
+
+## Model forecast
+
+Choosing a suitable model: 
+- A standard model could fit the data - ARIMA or exponential smoothing. They also perfom a forecast.
+
+- The model needs to implement seasonality:
+  - Seasonal ARIMA
+  - Exponenential smoothing
+  
+Seasonal ARIMA
+- linear assumption
+- the forecast will be constant for the forecasted   weeks
+- the data doesn't show any exponential character
+- no trend present
+
+```{r plotting ARIMA model}
+plot(forecast(auto.arima(mycounts)))
+```
+
+Blue line represents 80% of accuracy, grey line 95%;
+Number of customers on the weekends is drastically higher than on the weekdays. Morning are less busy than afternoons.
+
+# Packages, Data Introduction, Date Classes
+
+## New packages introduction
+
+*Package lubridate* 
+- hadles time and date better than R Base
+- simplifies the POSIX classes of R Base
+
+*Package forecast* 
+- for time series modelling
+- functions for forecasting and modelling (e.g. auto.arima())
+
+*Package tseries*
+- collects useful tools for working with time series data
+- modelling features, plotting tools, data formatting capabilities
+
+## Datasets Introduction
+
+### Lynx
+
+- Annual numbers of lynx trappings for 1821-1934 in Canada
+- The plot looks stationary with equal mean and variance
+- Some autocorrelation might be present => repetitive problem
+
+```{r plotting lynx data}
+plot(lynx); length(lynx)
+```
+
+### LakeHuron
+
+- Annual measurements (1875-1973) of Lake Huron water levels in feet
+- Annual data - non-seasonal
+- The plot looks like a random walk (very little pattern)
+```{r plotting LakeHuron data}
+plot(LakeHuron); length(LakeHuron)
+```
+
+### nottem
+
+- Temperature measurements for 1920-1940 in Nottingham
+- Monthly dataset with 240 observations
+- There is no trend or change in variance
+- A really good example for seasonal data
+
+```{r plotting Nottem data}
+plot(nottem); length(nottem)
+```
+
+### AirPassengers
+
+- The monthly volume of passengers for 1949 - 1961 in thousands
+- Several statistical traits influence the pattern
+- trend, seasonality, trend within the seasons
+
+```{r plotting AirPassengers data}
+plot(AirPassengers); length(AirPassengers)
+```
+
+### EuStockMarkets
+
+- The major stock indices in Europe for 1991 - 1999
+- Multivariate time series data
+- class = mts -> matrix structure
+- Trend is present for all four indices
+
+```{r plotting EuStockMarkets data}
+plot(EuStockMarkets); length(EuStockMarkets)
+```
+
+### sunsport.year
+
+- Yearly data for 1700-1989
+- Autocorrelation might be present
+- The dataset might require a more sophisticated model
+
+```{r plotting snusportyear data}
+plot(sunspot.year); length(sunspot.year)
+```
+
+### rnorm
+
+```{r returning normally distrubted random numbers, echo=TRUE}
+?rnorm
+```
+
+## POSIXt, Date and Chron Classes
+
+POSIXt is probably the best known (R Base) package to handle a metaclass, POSIXct and POSIXit. Both (POSIX) are able to handle time zones, dates and time.
+
+### POSIXt classes in R
+
+```{r Posixt class}
+x = as.POSIXct("2015-12-25 11:45:34") # nr of seconds
+
+y = as.POSIXlt("2015-12-25 11:45:34")
+
+x; y # it gives the same output, but what is behind it?
+
+unclass(x)
+
+unclass(y)
+
+# what does the number mean? (end of 2015)
+
+46 * 365 * 24 * 60 * 60
+
+y$zone # extracting the elements from POSIXlt
+
+#x$zone # not possible since it is simply a number of seconds
+```
+
+```{r as.date class}
+# another class based on days
+
+x = as.Date("2015-12-25"); x
+
+class(x)
+
+unclass(x)
+
+46 * 365 # nr of days since 1970
+```
+
+```{r}
+#library(chron)
+
+x = chron("12/25/2015", "23:34:09"); x
+
+class(x)
+
+unclass(x)
+```
+
+## Package lubridate
+
+```{r upload package}
+#library(lubridate)
+```
+
+### Different ways in how to input dates
+```{r inputting data, message=FALSE, warning=FALSE}
+
+ymd(19931123)
+
+dmy(23111993)
+
+mdy(11231993)
+
+# lets use time and date together
+
+mytimepoint <- ymd_hm("1993-11-23 11:23", tz = "Europe/Prague")
+
+mytimepoint
+```
+
+### Extracting the components
+
+```{r extracting components, message=FALSE, warning=FALSE}
+minute(mytimepoint)
+
+day(mytimepoint)
+
+hour(mytimepoint)
+
+# we can even change time values within our object
+
+hour(mytimepoint) <- 14
+
+mytimepoint
+```
+
+### Available Time Zones
+```{r message=FALSE, warning=FALSE}
+olson_time_zones()
+
+# we can take a look at the most common time zones
+
+# but be aware that the time zone recognition also depends on your location and machine
+
+## lets check which day our time point is
+
+wday(mytimepoint)
+
+wday(mytimepoint, label=T, abbr=F) # label to display the name of the day, no abbreviation
+
+# we can calculate which time our timepoint would be in another time zone
+
+with_tz(mytimepoint, tz = "Europe/London")
+
+mytimepoint
+```
+
+### Time intervals
+```{r message=FALSE, warning=FALSE}
+time1 = ymd_hm("1993-09-23 11:23", tz = "Europe/Prague")
+
+time2 = ymd_hm("1995-11-02 15:23", tz = "Europe/Prague")
+
+# getting the interval
+
+myinterval = interval(time1, time2); myinterval
+
+class(myinterval) # interval is an object class from lubridate
+```
+
+
+### Exercise: Creating a Data Frame with lubridate
+```{r message=FALSE, warning=FALSE}
+# lets now build a dataframe with lubridate that contains date and time data
+
+a = ymd(c(19981111, 19830123, 19820904, 19450509, 19821224, 19741203, 19871210), tz = "CET")
+
+# now I am creating a time vector - using different notations of input
+
+b = hms(c("22 4 5", "4-9-45", "11:9:56", "23 15 12", "14 26 34", "8 8 23", "21 16 14"))
+
+f = rnorm(7,10); f = round(f, digits = 2)
+
+date_time_measurement = cbind.data.frame(date = a, time = b, measurement = f)
+
+date_time_measurement
+```
+
+### Calculations with time
+```{r message=FALSE, warning=FALSE}
+minutes(7)
+
+# note that class "Period" needs integers - full numbers
+
+#minutes(2.5)
+
+# getting the duration
+
+dminutes(3)
+
+# how to add minutes and seconds
+
+minutes(2) + seconds(5)
+
+# more calculations
+
+minutes(2) + seconds(76)
+
+# class "duration" to perform addition
+
+as.duration(minutes(2) + seconds(75))
+
+# lubridate has an array of time classes, period or duration differ!
+
+# which year was a leap year?
+  ##a year, occurring once every four years, which has 366 days including 29 February as an intercalary day.
+
+leap_year(2009:2014)
+
+ymd(20140101) + years(1)
+
+ymd(20140101) + dyears(1)
+
+# lets do the whole thing with a leap year
+
+leap_year(2016)
+
+ymd(20160101) + years(1)
+
+ymd(20160101) + dyears(1)
+
+# as you see the duration is the one which is always 365 days
+
+# the standard one (the period) makes the year a whole new unit (+1)
+```
+
+### Exercise Lubridate
+```{r message=FALSE, warning=FALSE}
+# create x, with time zone CET and a given time point in 2014 of your choosing
+
+# the time point consists of year, months, day and hour
+
+x = ymd_hm(tz = "CET", "2014-04-12 23:12")
+
+
+# change now the minute of x to 7 and check x in the same line of code
+minute(x) = 7 ; x
+
+# see which time it would be in London
+
+with_tz(x, tz="Europe/London")
+
+# create another time point y in 2015 and get the difference between those 2 points
+
+y = ymd_hm(tz = "CET", "2015-12-12 09:45")
+
+y-x
+```
+ 
+# Time Series
+
+## ts function
+
+```{r}
+# Getting data
+mydata = runif(n = 50, min = 10, max = 45)
+
+# ts for class time series
+# Data starts in 1956 - 4 observations/year (quarterly)
+mytimeseries = ts(data = mydata, 
+                  start = 1956, frequency = 4)
+
+# Lets see how the data looks
+plot(mytimeseries)
+
+# Checking the class
+class(mytimeseries)
+
+# Checking the timestamp
+time(mytimeseries)
+
+# Refining the start argument
+mytimeseries = ts(data = mydata, 
+                  start = c(1956,3), frequency = 4)
+
+#start - When does the time series start? First available value of the first cycle
+#frequency - How frequent are the observations? Number of observations per cycle?
+
+#start and c() => use the 'start=' argument with the concatenate function - c()
+#start = c(1956,3) - makes the time stamp start at the third quarter of 1956 (it the frequency is 4)
+```
+
+**Time Stamp Combinations**
+
+Hourly measurements with daily patterns, starts at 8am on the first day:
+
+*start = c(1,8), frequency = 24*
+
+Measurements taken twice a day on workdays with weekly patterns, starts at the first week:
+
+*start = 1, frequency = 10*
+*NA for holidays - regular spacing!*
+
+Monthly measurements with yearly cycle:
+
+*frequency = 12*
+
+Weekly measurements with yearly cycle:
+
+*frequency = 52*
+
+
+### Creating a ts object - Exercise
+
+```{r creating ts object}
+# Get a random walk of 450 numbers, eg rnorm, runif, etc 
+
+# In the solution I am going to use a cumulative sum on the normal distribution x = cumsum(rnorm(n = 450)) 
+
+# If you want it to be reproducible, you can set a seed 
+
+# Add the time component: it is a monthly dataset, which starts in November 1914 
+
+# Get a simple plot for this time series # Advanced: how would you get the same type with the "lattice" package?
+
+x = cumsum(rnorm(n = 450)) 
+
+y = ts(x, start = c(1914,11), frequency = 12)
+```
+
+```{r plotting the object}
+plot(y)
+
+#same plot with lattice
+
+#library(lattice)
+
+xyplot.ts(y)
+```
+
+## U Plots for time series data
+```{r message=FALSE, warning=FALSE}
+# Standard R Base plots
+plot(nottem) 
+
+# Plot of components
+plot(decompose(nottem)) 
+
+# Directly plotting a forecast of a model
+plot(forecast(auto.arima(nottem)), h = 5)
+#h = 5 => 5 years
+# forcast function automatically recognizes which model is used and adjusts automatically. This holds true for all available and common models of the forecast package
+
+# Random walk
+plot.ts(cumsum(rnorm(500)))
+# This is used if my data hasn't been classified as time series yet; no conversion is required
+```
+
+## Advanced plots 
+
+```{r}
+# Add on packages for advanced plots
+
+  #library(forecast)
+  #library(ggplot2)
+
+# The ggplot equivalent to plot
+autoplot((nottem))
+# autoplot is coming from forecast package
+
+
+# Ggplots work with different layers
+autoplot(nottem) + ggtitle("Autoplot of Nottingham temperature data")
+
+# Time series specific plots
+ggseasonplot(nottem) 
+
+ggmonthplot(nottem)
+```
+
+##Exercise seasonplot()
+
+Data used = AirPassengers
+
+```{r plotting seasonplot}
+#library(forecast)
+
+seasonplot(AirPassengers, xlab="",
+           col=c("red", "blue"),
+           year.labels = T,
+           labelgap = 0.35,
+           type = "l",
+           bty = "l",
+           cex = 0.75,
+           main = "Seasonal plot of dataset AirPassengers")
+```
+
+#Importing time Series Data from Excel or Other Sources
+
+Thing to keep in mind:
+
+- No headers or row IDs => Make sure you have only raw data imported!
+
+- Data needs to be sorted => It needs to be continuous series of data, earlier data comes first and latest last.
+For Example: It needs to start with 2008 and end with 2017.
+
+## Example
+data: https://www.statbureau.org/en/germany/inflation-tables
+
+```{r}
+#mydata = scan()
+```
+
+```{r}
+#plot.ts(mydata)
+```
+
+```{r}
+#germaninfl = ts(mydata, start=2008, frequency =12)
+```
+
+```{r}
+#plot(germaninfl)
+```
+
+# Irregular Time Series
+
+The interval between observations is not fixed.
+
+Reasons behing irregular time series:
+
+- Result of inappropriate data collection
+- Hardware or software errors
+- The nature of the data is irregular (e.g. logs)
+
+Most modeling techniques require a regular time series. 
+
+Most of the tools are not able to handle differing gaps between the observations.
+
+Possible solution:
+
+- Min. 1 observation per unit
+- Some info will be lost
+
+## Import a new dataset
+
+```{r}
+#library(readr)
+irregular_sensor <- read_csv("~/Downloads/irregular-sensor.csv", 
+    col_names = FALSE)
+```
+
+```{r}
+class(irregular_sensor$X1)
+```
+
+First column is classified as character but represents data. The hour when measurement was taken fluctuates a lot - no fixed interval. Some observations include only one record per day, some include more than 1.
+
+1) We have to convert character to a date time format
+
+2) Regularizing the dataset with an aggregate function -  aggregate data into daily observations
+
+3) Convertig the object into a time series(ts)
+
+Summary:
+
+- Specifying a time window
+- Moderate amount of N/As or missing data:
+    - Apply a favored missing data imputation method
+- High amount of N/As or missing data:
+    - Readjust the time window
+- Class 'zoo' for irregular time series - library 'zoo'
+
+
+```{r}
+#library(zoo)
+#library(tidyr)
+```
+
+##Method 1 - removing the time component
+
+```{r removing time from date}
+irreg.split = separate(irregular_sensor, col=X1, into = c('date', 'time'),
+sep = 8, remove=T)
+```
+
+
+```{r using only the date}
+# Using only the date
+sensor.date = strptime(irreg.split$date, '%m/%d/%y')
+```
+
+```{r creating a data.frame for orientation}
+# Creating a data frame for orientation
+irregts.df = data.frame(date=as.Date(sensor.date),
+                        measurement = irregular_sensor)
+```
+
+```{r using zoo package, message=FALSE, warning=FALSE}
+# Using zoo package
+irreg.dates = zoo(irregts.df$measurement.X2,
+order.by = irregts.df$date)
+```
+
+```{r}
+ag.irregtime = aggregate(irreg.dates, as.Date, mean)
+
+ag.irregtime
+
+length(ag.irregtime)
+```
+
+Dataset is now regular and can be converted to ts().
+
+## Method 2 - date and time component kept
+
+```{r}
+sensor.date1 = strptime(irregular_sensor$X1, '%m/%d/%y %I:%M %p')
+
+sensor.date1
+```
+
+
+```{r creating zoo object}
+irreg.dates1 = zoo(irregular_sensor$X2,
+order.by = sensor.date1)
+
+irreg.dates1
+
+plot(irreg.dates1)
+```
+
+```{r regularizing with aggregate}
+ag.irregtime1 = aggregate(irreg.dates1, as.Date, mean)
+
+ag.irregtime1
+
+plot(ag.irregtime1)
+```
+
+```{r Converting to ta time series}
+myts = ts(ag.irregtime1)
+plot(myts)
+```
+
+# Working with Missing Data and Outliers
+
+## Import ts.NAandOutliers.csv
+```{r message=FALSE, warning=FALSE}
+#library(readr)
+
+mydata <- read_csv("~/Downloads/ts-NAandOutliers.csv",
+col_names = TRUE,
+cols(
+  X1 = col_integer(),
+  mydata = col_double()
+))
+```
+
+## Convert the 2nd column to a simple ts without frequency
+```{r}
+myts = ts(mydata$mydata)
+myts
+```
+
+Regular time series with 250 observations. The sensor showed some malfunctions: Missing measurements, measurement is out of range.
+
+```{r checking for NAs and outliers}
+summary(myts)
+plot(myts)
+```
+
+Plot confirmed that some values (4) are out of range (outliers).
+
+This counts for 3.6% corupted observations (9 of 250).
+
+Outlier detection:
+
+- library 'tsoutliers': tso()
+- library 'forecast': tsoutliers()
+
+## Automatic detection of outliers
+```{r}
+#library(forecast)
+
+myts1 = tsoutliers(myts)
+
+myts1
+
+plot(myts)
+```
+
+Missing Data Imputation
+
+- Adding a replacement value instead of themissing one
+- Several available methods
+  - Libraries 'zoo' (na.locf()) and 'forecast'
+  
+na.locf() => last observation carried forward, last observation before themissing value will be copied and replaced missing value.
+
+NAfill() => missing values are filled with a specific value (manually selected)
+  
+
+## Missing data handling with zoo
+```{r}
+#library(zoo)
+myts.NAlocf = na.locf(myts)
+
+myts.NAfill = na.fill(myts, 33)
+# Tip: na.trim to get rid of NAs at the beginning or end of dataset
+```
+
+Another method is na.interp() which fits a local linear interpolation for a given missing value.
+
+If the given dataset is seasonal, the interpollation is based on exponential smoothing.
+
+## Standard NA method in package forecast
+```{r}
+myts.NAinterp = na.interp(myts)
+```
+
+na.interp() function and tsoutliers() function is combined into one convenient function which automatically updates the data set (tsclean()).
+
+The missing values of field and the outliers are replaced with locally smoothed values.
+
+These are the same values as you would get with tsoutliers function.
+
+## Cleaning NA and outliers with forecast package
+```{r}
+mytsclean = tsclean(myts)
+
+plot(mytsclean)
+
+summary(mytsclean)
+```
+
+
+#Time Series Vectors and Lags
+
+## Difference between time series and vector
+
+Time series data contains values as other datasets do, but its values have a specific order
+
+The order is specified by the tie stamp - normally, data is collected on yearly, montyhly etc. basis.
+
+The order might also be specified by a vector which has a unique ID attached to the variable.
+
+To perform time series analysis the order needs to be meaningful without randomness
+
+- Non-meaningful: a vector of body measurements taken randomly from a given population
+    - The order of people being measured doesn't provide meaningful information
+    - Changing the order of people doesn't affect the basis assuptions
+    
+- Meaningful: monthly temperature measurements
+    - Seasonal pattern
+    - Changing the order of values corrupts the information
+  
+- Alternative to time stamp: vector of unique IDs attached to a vector
+    - Can be coded in R, however, proper time series is easiar to read
+
+## Time lag
+lagn = yt - yt-n
+
+lynx has a length of 114
+
+t=shows position of a value in the time series
+last observation = y114
+y114 = 3396
+
+A calculation of lag1:
+
+*lag1 = y114 - y114-1 = 3396 - 2657*
+
+A calculation of lag2:
+
+*lag2= y114 - y114-2 = 3396 - 1590*
+
+```{r exploring lynx dataset}
+lynx
+
+time(lynx)
+
+length(lynx)
+
+tail(lynx) # last 6 observations
+```
+
+## Univariate and multivariate time series, mean and median
+
+*Univariate time series* - There is one variable attached to a time stamp
+
+*Multivariate time series* - several variables are connected to the time stamp (matrix)
+
+For univariate time series (e.g. lynx) there are very common statistics (e.g. mean, median)
+Mean and median differ, when we look at plot, we can see that there are several peaks in the data - cycles of approx. 9 years. The peaks are short => most of the observation are well below the peaks
+
+The high peaks affect the average value of the vector.
+
+The peaks have no effect on the median.
+
+```{r exploring mean and median of lynx}
+mean(lynx); median(lynx)
+
+plot(lynx)
+```
+
+## How is median calculated in even dataset??
+```{r}
+sort(lynx)
+
+sort(lynx)[c(57,58)]
+
+quantile(lynx)
+
+#50% quantile shows median
+quantile(lynx, prob = seq(0, 1, length = 11), type = 5)
+```
+
+
+# Simple forecast methods
+
+- Time series analysis is a statistical effort that implies that datasets have different statistical traits
+- These statistical traits are very distinct from standard data without a time component
+- The time component specifies successive order
+- To select the right modelling tool, you need to know the characterstics of the dataset
+
+## Type of datasets
+
+- *Random normally distributed dataset* (Stationary dataset; mean stays constant throughout the time series, variance stays constant throughout the time series)
+
+- *Heteroscedastic dataset* - the data points at the end have a much larger span than at the beginning, variance changes; non-stationary, mean stays the same
+
+- *Dataset with trend* - looks like a linear regression, trend is clearly present, mean is not constant, variance is constant, non-stationary
+
+- *Seasonal dataset* - Typical time intervals resulting in spikes, they have same distance to each other, variance and mean stay the same
+
+- *Exponential Trend* - clear trend with exponential curve, mean is non constant, non-stationary dataset
+
+- *All Traits Present* - Seasonality, changing variance trend might be also present (more complicated model)
+
+## Why to choose a simple method over a complex model?
+
+- Simple forecasting methods can outperform more advance models in certain circumstances
+- General rules:
+  - For mostly or completely random data simple methods work best,
+  - Advanced models exploit patterns (e.g. seasonality, trend)      better
+  
+- With stock data or financial data primitive models do well
+
+## Three simple methods
+
+1) Naive method
+
+- Naive, last observation carried forward method
+- Projects the last observation into the future
+- Use the naive() function in the 'forecast' package
+- The function can be tweaked to fit even a seasonal dataset
+
+  - example: to forecast February 2018, R takes the last     observed value of February 2017
+  
+2) Average method
+- Calculates the mean of the data and projects that into the future
+- Use the meanf() function from the 'forecast' package
+
+3) Drift method
+- Calculated the difference between first and last observation and carries that increase into the future
+- Use the rwf() function from 'forecast'
+
+## Example of simple methods
+
+```{r preparing a dataset}
+set.seed(95)
+myts <- ts(rnorm(200), start = (1818))
+plot(myts)
+#no pattern in dataset - I can use one of simple methods
+```
+
+```{r checking 3 simple methods}
+# library(forecast)
+meanm <- meanf(myts, h=20) #20 means that I forecast 20 years
+naivem <- naive(myts, h=20)
+driftm <- rwf(myts, h=20, drift = T) #drift is set to true for drift method
+```
+
+meanm:
+I can open a created object and see available elements such as fitted values (predicted values applied to a dataset), residuals or mean values (the forecasted values of the same mean)
+
+Plot() the meanm object (20 forecast values)
+
+- main "'" deletesthe header
+- plot.conf = F allows to get more lines on the plot
+
+Lines() adds more lines to the plot
+
+- naivem$mean and difrtm$mean prove the 20 forecast values of each object
+- col sets the colour for the lines
+- lwd sets the line width
+
+Legend with the same colour coding
+
+- topleft - position of the legend
+- lty sets the line type
+- legend specifies the titles
+
+```{r plotting the mean, message=FALSE, warning=FALSE}
+plot(meanm, plot.conf = F, main = "")
+lines(naivem$mean, col=123, lwd = 2)
+lines(driftm$mean, col=22, lwd = 2)
+legend("topleft",lty=1,col=c(4,123,22),
+       legend=c("Mean method","Naive method","Drift Method"))
+
+#Blue line is mean as forecasted value
+
+#Green line is last observation carried forward  (Random value most likely between -1 and 1)
+
+#Purple line is first and last observations extrapolated into the future
+```
+
+## Accuracy and model comparison
+
+- Knowing which models perform best  with the given data is key => forecast accuracy
+
+- Determine how much difference thereis between the actual value and the forecast for that value
+
+- The simplest way is via a scale dependent error - all the models you want to compare need to be on the same scale (e.g. MaE(Mean absolute error), RMSE(Root mean squared error))
+
+A) MAE - mean absolute error
+  - The mean of all differences between actual and forecaste absolute values
+
+  *MAE = $(\sum$ |yi-yhati|)/n*
+
+B) RMSA - root mean squared error
+
+  *RMSA = square root of ($\sum$ yi-yhati)^2/n*
+
+C) MASE - mean absolute scaled error
+
+  - Measure the forecast error compared to the error of a naive forecast
+
+  0<x<1
+    x=1 naive forecast (always picking the last alue observed)
+    x=0.5 the model has double the prediciton accuracy as a naive last value approach
+    x>1 the model needs a lot of improvement
+  
+D) MAPE - mean absolute percentage error
+
+  - Measures the difference of forecast errors and divides it by the actual observation value
+  - Does not allow for 0 values
+  - Puts much more weight on extreme values and positive errors
+  - Scale independent - you can use it to compare a model on different datasets
+
+E) AIC - Akaike information criterion
+  - common measure in forecasting, statistical modelling and machine learning
+  -  It is great to compare the complexity of different models
+  - penelizes more complex models
+  - the lower the AIC score the better
+
+### Accuracy and model comparison - Examples
+Package forecast - accuracy() function gives all relevant accuracy statistics except the AIC
+
+Random time series of 200 years starting 1818
+
+Dividing the series into a training and a test set using the windown() function (the training ata is used to fit the model mytstrain and the test set is used to seehow well the model performs)
+
+The process of dividing int training and test datasets is widely used in machine learning and stastical modelling.
+
+Always test the model on genuinely new data, because the performance of themodel on historic data is laregely irrelevant (split the data at about 80-20; 80% to fit the model and 20% to test it)
+
+The model should be as simple as possible - complex models might cause overfitting.
+
+```{r prepareing a data}
+set.seed(95)
+
+myts <- ts(rnorm(200), start = (1818))
+
+mytstrain <- window(myts, start = 1818, end = 1988)
+# With the window() function we extract a time frame of 1818-1988
+
+plot(mytstrain)
+```
+
+```{r 3 simple methods}
+#library(forecast)
+meanm <- meanf(mytstrain, h=30)
+naivem <- naive(mytstrain, h=30)
+driftm <- rwf(mytstrain, h=30, drift = T)
+```
+
+```{r}
+mytstest <- window(myts, start = 1988)
+
+accuracy(meanm, mytstest)
+accuracy(naivem, mytstest)
+accuracy(driftm, mytstest)
+
+#We have both arrows for both the training and the tests that are calculated the difference between the actual values from my TS test and the forecasted values from the model.
+
+#First model (meanm) shows the best results with all key indicators having the lowest values (RMSE, MAE, MASE, MAPE)
+```
+
+## Forecast accuracy check
+1) We generated 200 random numbers => myts
+2) We took the first 170 observations (ca 80%) of myts using the window() function => mytstrain
+3) We set up three forecasting models (average, naive and drift) on mytstrain to get 30 observations into the future => meanm, naivem, drftm
+4) We extracted the last 30 observations (ca20%) of myts using the window() function => mytstest
+5) We used the accuracy() function to see the error statistics of the hree models (meanm, naivem, drftm) compared to the error stastics of mystest
+
+
+# Residuals
+
+- When modeling a series of data we get the residuals alongside with the forecasted    and the fitted data
+- Residuals is remaining data (leftovers) after modeling - they tell a lot about the    quality of the model
+- Rule of thumb: you want all the patterns in the model, only randomness should stay   in the residuals
+- Residuals shoud be the container of randomness (data you cannot explain in           mathematical terms) => ideally they have a mean of zero and constant variance
+  - The residuals should be uncorrelated (correlated residuals still have information     left in them) => ideally they are normally distributed
+  - A non-zero mean can be easily fixed with addition or subtraction, while              correlations can be extracted via modeling tools (e.g differencing) -                ensuring normal distribution (constant variance) might be impossible in some         cases, however, transformations (e.g. logarithms) might help
+
+```{r preparing a dataset from 1818}  
+set.seed(95)
+myts <- ts(rnorm(200), start = (1818))
+plot(myts)
+
+#Use a random time series - ts(rnorm(200), start(1818)) - to work along
+#Each of the three simple models have the residuals available $residuals
+# Models drift and naive need one observation to start with => the first position variance cannot be computed - N/A
+# For these models residuals are what is left after the fitted value got subtracted from the original dataset
+  # - The first value needs to be omitted = it is an N/A
+  # - Residuals are depending on the dataset and the applied forecasting model - in this case they stay at 0 mean and 1 as variance
+```
+
+```{r exploring the residuals}
+#library(forecast)
+meanm <- meanf(myts, h=20)
+naivem <- naive(myts, h=20)
+driftm <- rwf(myts, h=20, drift = T)
+
+
+# Mean method
+var(meanm$residuals) # Close to 1
+mean(meanm$residuals) # Close to 0
+
+mean(naivem$residuals) #Result NA
+
+# Naive method (Getting rid off first observation)
+
+naivwithoutNA <- naivem$residuals
+naivwithoutNA <- naivwithoutNA[2:200]
+
+var(naivwithoutNA)
+mean(naivwithoutNA)
+
+# Drift method
+driftwithoutNA <- driftm$residuals
+driftwithoutNA <- driftwithoutNA[2:200]
+var(driftwithoutNA)
+mean(driftwithoutNA)
+```
+
+*Use the functions var() and mean()*
+
+1.Mean method:
+
+  - variance is close to 1 (the random dataset has some unpredictability), mean is really close to 0
+  - this method works best with the dataset
+
+2. Naive method: first get rid of the very first value (N/A)
+
+  - Since the result depends on the last value observed, the variance (1.8) is quite off, while the mean(0.007) is moderately off ofthe original data
+
+3. Drift method: first get rid of the very first value (N/A)
+
+  - Variance is significantly higher than 1, but the mean stays at 0, because the first and last observed values canceled each other out (random result)
+
+
+```{r checking the distribution and autocorrelation}
+hist(driftm$residuals) # normal distribution of residuals
+
+acf(driftwithoutNA)
+# autocorrelation test, if we get several bars above or below the threshold levels, we get significance
+# 3/20 bars are over/below the thresholds => the residuals still have information left in them
+# Improving the model (e.g. applying a transformation) might reduce the bars
+```
+
+# Stationarity
+
+- Has the data the same statistical properties throughout the time series?
+- Statistical propertis: variance, mean, autocorrelation
+- Most analytical procedures in time series require stationary data
+- If the data lacks stationarity there are transformations to be applied to make the data stationary, or it can be changed via differencing
+- Differencing adjusts the data according to the time spans that differ in e.g. variance or mean (extensively used in ARIMA models)
+
+## De-trending
+
+Loads of time series have a trend in it => the mean chanbges as a result of the trend => causes underestimated predictions
+
+Solution:
+
+  1) Test if you get stationarity if you de-trend the dataset: take the trend compionent out of the dataset => trend stationarity
+  2) If this procedure is not enough then you can use differencing => difference stationarity
+  3) Unit-root tests tell whether there is a trend stationarity or a difference stationarity
+    - The first difference goes from one period to the very next one (two succewssive steps)
+    - The first difference is stationary and random => random walk (each value is a random step away from the previous value)
+    - The first difference is stationary but not completely random (e.g. values are auto correlated) => requires a more sophisticated model (e.g.        eponential smoothing, ARIMA)
+    
+Tests for non-stationarity 
+  - (unit-root test), e.g. library urca
+  - library tseries => adf.test(x); the augmented Dickey-Fuller test removes the autocorrelation and tests for non-stationarity
+
+
+```{r checking a stationarity, message=FALSE, warning=FALSE}
+x <- rnorm(1000) # no unit-root, stationary
+
+# library(tseries)
+
+adf.test(x) # augmented Dickey Fuller Test
+# very small p-value below 0.05 allows us to reject the null hypothesis of non stationary
+
+```
+
+```{r example of stationarity}
+plot(nottem) # Let s see the nottem dataset
+# clear seasonality
+
+plot(decompose(nottem))
+# we don't see clear trend
+
+adf.test(nottem)
+# value less than 5%, leads to alternative hypothesis of stationarity
+
+```
+
+```{r example of non-stationarity, warning=FALSE}
+y <- diffinv(x) # non-stationary
+
+plot(y)
+# mean and variance could be changing
+
+adf.test(y)
+#p-value is higher than 0.05, we have a non-stationarity in dataset
+```
+
+#Autocorrelation
+
+- It is statistical term which describes the correlation (or the lack of such) in a    time series dataset
+
+- It is a key statistic, because it tells you whether previous observations influence   the recent one => correlation on a time scale
+
+- Lags: steps on a time scale
+
+- For best statistical results, you always need to find out whether autocorrelation    is present
+
+- There are many tools available in R to test for autocorrelation but in most of the   cases it is clear to see whether it present
+  E.g. there won't be any autocorrelation in a random walk, whie the lynx dataset has   it for sure
+
+```{r plotting lynx}
+plot(lynx)
+```
+
+Lynx is a perfect example for an auto-correlated dataset. If you trap many lynx in one year, there will be less to catch in the following year.
+
+## Methods to get the autocorrelation calculated
+
+acf() - Autocorrelation fuction
+
+- Shows the autocorrelation between time lags in a time series
+- It returns a measure
+
+pacf() - Partial autocorrelation fuction
+
+Durbin-Watson test - library (lmtest)
+
+- Gets the autocorrelation only of the first order - between one time point and the immediate successor
+- It is not robust to trends and seasonality
+- Treat it with caution
+
+## Durbin-Watson test for autocorrelation
+
+Assumption: there is autocorrelation in the lynx dataset
+
+Preparation:
+
+- To perform the DW test, the first (y) and last (x) observation of lynx needs to be chopped off
+- This step provides 1 lag difference
+- Test the formula argument (x~y) with the head() function
+
+
+### Example 1:
+```{r example 1}
+# Durbin Watson test for autocorrelation
+
+length(lynx); head(lynx); head(lynx[-1]); head(lynx[-114]) # check the required traits for the test
+
+# library(lmtest)
+
+dwtest(lynx[-114] ~ lynx[-1]) # 1 lag time difference
+# highly significant p-value, confirmation of autocorrelation
+
+```
+
+### Example 2:
+```{r example 2}
+x = rnorm(700) # Lets take a look at random numbers
+
+dwtest(x[-700] ~ x[-1])
+# can't reject null hypothesis, there is no autocorrelation
+```
+
+### Example 3:
+```{r example 3}
+length(nottem) # and the nottem dataset
+
+dwtest(nottem[-240] ~ nottem[-1])
+# highly signifacnt p-value, there is true autocorrelation
+```
+
+# Functions acf() and pacf()
+
+Function acf() and pacf() make sense on time series data
+- Alternatively, you could try all possible models one by one => time consuming
+- Using these functions provides a systematic way to identify the parameters
+
+Autocorrelation: the correlation coefficient between different time points (lags) in a time series
+Partial autocorrelation: the correlation coefficient adjusted for al shorter lags in a time series
+
+The acf() is used to identify the moving average (MA) part of the ARIMA model, while pacf() identifies the values for the autoregressive part (AR)
+ - Both functions are part of R Base
+ 
+```{r using acf and pacf functions}
+# lag.max for numbers of lags to be calculated
+
+ acf(lynx, lag.max = 20)
+# Several bars ranging out of the 95% confidence intervals
+# Omit the first bar - it is the autocorrelation against itself at lag0
+# The first two lags are significant
+
+pacf(lynx, lag.max =20)
+# PACF starts at lag1
+#The first lag is a significant lag, the second lag is significant to the negative side
+
+#only data
+acf(lynx, lag.max = 20); pacf(lynx, lag.max=20, plot=F)
+# blue line is 95% confidence interval
+```
+
+```{r}
+acf(rnorm(500), lag.max = 20)
+# I have to ignore first lag, only one lag is significant above the 95% confidence interval
+# 20 observations with 95% confidence => one bar is expected to be outside the significance level
+# A rnorm simulation is random, therefore the bars should be around 0
+  # 1 = absolute positive correlation
+  # -1 = absolute negative correlation
+```
+
+# Exercise
+
+## TASK 1: Get the ad hoc dataset and plot it
+Examine the data and the plot, explain the statistical traits of the time series and identify the problems and make a plan to fix them
+```{r creating ad-hoc dataset}
+set.seed(54)
+
+myts <- ts(c(rnorm(50, 34, 10), 
+             rnorm(67, 7, 1), 
+             runif(23, 3, 14)))
+
+plot(myts) #we can see that there is drop in mean and variance is not constant
+
+myts <- log(myts)
+```
+
+## TASK 2: Set up three forecasting models with 10 steps into the future
+```{r setting up forecasting models}
+#library(forecast)
+meanm <- meanf(myts, h=10)
+naivem <- naive(myts, h=10)
+driftm <- rwf(myts, h=10, drift = T)
+```
+## TASK 3: Get a plot with the three forecasts of the model
+
+## TASK 4: Which method looks most promising?
+
+```{r plotting a data}
+plot(meanm, main = "", bty = "l")
+lines(naivem$mean, col=123, lwd = 2)
+lines(driftm$mean, col=22, lwd = 2)
+legend("bottomleft",lty=1,col=c(4,123,22), bty = "n", cex = 0.75,
+       legend=c("Mean method","Naive method","Drift Method"))
+
+# Drift(purple) method has a line going down due to one event; probably not a best solution
+
+# Mean method puts equal weight on each observation which in this case gives us a blue line where not much is going on. 
+
+# Naive method puts all the weight on the most recent observations which seems to be a good approach in this case
+```
+
+## TASK 5: Get the error measures and compare them
+
+```{r comparing models}
+# Splitting data 80:20
+
+length(myts)
+
+mytstrain <- window(myts, start = 1, end = 112 )
+
+mytstest <- window(myts, start = 113)
+
+#length 28 is taken from mytstest
+
+meanma <- meanf(mytstrain, h=28)
+naivema <- naive(mytstrain, h=28)
+driftma <- rwf(mytstrain, h=28, drift = T)
+
+# see which model is the best
+accuracy(meanma, mytstest)
+accuracy(naivema, mytstest)
+accuracy(driftma, mytstest)
+# lowest values for RMSE, MAE, MAPE, MASE => Naive method
+
+# We can focus on naive model
+```
+
+## TASK 6: Check all relevant statistical traits
+
+- mean or zero
+- no autocorrelaton in the residuals
+- equal variance
+- standard distribution of the residuals
+
+```{r checking all relevant tests}
+plot(naivem$residuals)
+# graphs is not homoscedastic and mean is not around 0
+
+mean(naivem$residuals[2:140])
+
+hist(naivem$residuals) # doesn't seem to be a normal distribution, too much weight on the center, let's test it with shapiro-wilk
+
+shapiro.test(naivem$residuals) # test for normal distribution, normal distr can be rejected (H1)
+
+acf(naivem$residuals[2:140]) # autocorrelation test, autocorrelation present (1 bar crossing would be fine, but there are 4)
+```
+
+## TASK 7: Examine the test result: are there any fixes needed? What is the easiest tool to improve the model?
+
+## TASK 8: Perform the whole Analysis with the log transformation on the data
+
+- We can use the logarithm, rescale the data and get rid of most of these problems e.g. heteroscedasticity
+
+- We can use the code above again, just run the myts <- log(myts) as well
+
+- Variance is better than before and drop is not so deep.
+
+- Naive model still looks the best. And with accuracy measures, we can see that it is still true.
+
+- Looking at residuals variance, we can see that situation is now much better and the mean is close to zero.
+
+- Data is still not distributed evenly but it is ok if mean and autocorrelation look ok.
+
+- The test statistics is still below 0.05 with Shapiro-Wilk test.
+
+- After checking acf function, we can see that there is only 1 bar getting of the confidence interval.
+
+# Time Series Analysis And Forecasting
+
+## Selecting a Suitable Model - Quantitative Forecasting Models
+
+**Quantitative Forecasting:**
+
+A) Linear Models
+- Simple Models (not good if trend or   seasonality)
+- Exponential Smoothing
+- ARIMA
+- Seasonal Decomposition
+
+The most widely used models are Exponential Smoothing and ARIMA model. 
+
+*Exponential Smoothing* - Trend and seasonality are key determinants. Can put more weight on recent observations.
+
+*ARIMA Model* - Explains patterns in the data based on autoregression.
+
+*Seasonal Decomposition* - The dataset needs to be seasonal or at least have a frequency. Minimum number of seasonal cycles (2). 
+
+*Further Linear Models* - linear regressions, dynamic regressions, vector autoregressive models (when more variables involved; library vars)
+
+B) Non-Linear Models
+- Neural Nets
+- Support Vector Machines
+- Clustering
+
+*Neural Nets* - Tries to model the brain's neuron system:
+- An input vector is compressed to several layers
+- Each layer consists of multiple neurons
+- Weight of importance may be ascribed to each neuron
+
+The amount of requred layers is specified by the dataset. 
+Library 'forecast' - nnetar() or library 'nnfor'
+
+*Clustering* - library 'kml', implements k-means clustering
+
+# Seasonal Decomposition
+
+## Univariate Seasonal Time Series
+
+Modelling options:
+
+- Seasonal ARIMA
+- Holt-Winters Exponential Smoothing
+- Seasonal Decomposition
+
+To perform seasonal decomposition, the dataset must have a seasonal component
+
+- Frequency parameter for generated data
+- Frequently measured data: inflation rates, weather measurements etc.
+
+Seasonal decomposition decomposes seasonal time series data to its components
+
+- Trend
+- Seasonality
+- Remainder - random data
+
+Methods:
+
+Additive - adds components up, use this one if the seasonal component stays constant over several cycles
+Multiplicative- Multiplies components
+
+Drawbacks of Seasonal Decomposition:
+
+- N/A Values
+- Slow to catch sudden changes
+- Constant seasonality
+
+Alternative methods:
+
+- SEATS, x11, stl decomposition
+- Values for all observations - no N/A
+- Seasonal part can be adjusted over time
+- Tools:
+
+  - R Base: decompose(), stl()
+  - Library 'forecast': Integration stl generated objects, stlf()
+  - Library 'seasonal': seas()
+  
+  
+```{r plotting nottem data}
+ plot(nottem) #stable seasonality and no trend => we can use additive model
+
+#If the amplitude of the seasons stay roughly the same that means the distance between highs and lows of the season do not constantly increase over time. 
+
+#Peaks of the seasons are not moving either up or down -> no trend
+```
+
+```{r checking a length}
+length(nottem) #20 years multiply by 12 months
+```
+
+```{r decomposing a data}
+decompose(nottem, type = "additive") 
+
+plot(decompose(nottem, type="additive"))
+# we can see there is no trend because the data stays around the mean (except two peaks over the time)
+# seasonal part is quite clear to recognize and it stays constant over the whole time
+```
+
+```{r alternative with ggplot}
+# alternative using ggplot
+# in order to use autoplot, both libraries need to be activated - ggplot2 and forecast
+autoplot(decompose(nottem, type="additive"))
+```
+
+```{r alternative with stl}
+# alternatively the function stl could be used
+plot(stl(nottem, s.window="periodic"))
+
+stl(nottem, s.window="periodic")
+```
+
+## Decomposition Demo
+
+Extracting Components
+
+"object$component""
+
+"myobject$seasonal""
+
+Each component can be extracted and then used for creating an adjusted time series
+
+```{r substracting the seasonal component}
+#subtract the seasonality component from the dataset
+mynottem=decompose(nottem, "additive")
+
+class(mynottem)
+```
+
+```{r}
+# we are subtracting the seasonal element
+
+nottemadjusted = nottem - mynottem$seasonal
+
+# getting a plot
+plot(nottemadjusted)
+```
+
+```{r decomposed time series}
+# a decomposed time series to forecast
+# library(forecast)
+
+plot(stlf(nottem, method = "arima"))
+
+# I can  use other method like naive or drift, I can also add h for length of forecast etc.
+```
+
+## Exercise: Decomposition
+1. Get and plot the dataset 'AirPassengers' of R Base (monthly data with lots of patterns)
+2. Set up two decomposition models with decompose() - alternative: stl()
+
+  - Additive model - mymodel1
+  - Multiplicative model - mymodel2
+  
+3. Plot and compare the two models
+4. Produce and plot a time series of the seasonally adjusted mymodel1 (that means that there should only be the trend and the remained left in the data set)
+
+  - compare to the original dataset
+
+```{r plotting a checking frequency of AirPassengers data}
+plot(AirPassengers)
+#trend present as well as seasonal pattern, seasonal amplitude (difference between max and min) increases a lot with time
+frequency(AirPassengers)
+```
+
+```{r decomposing AirPassengers data}
+mymodel1 = decompose(AirPassengers, type = "additive")
+
+plot(mymodel1)
+# trend is increasing, seasonal pattern in third line, some pattern left in reminder (last line) and that's not a good sign, I need to get all patterns in model and white noice in reminder
+```
+
+```{r decomposing with different type}
+mymodel2= decompose(AirPassengers, type= "multiplicative")
+
+plot(mymodel2)
+# last line is different to previous model, it looks more random (although there is still some pattern at the beggining)
+```
+
+```{r plotting both options}
+plot(mymodel1$trend + mymodel1$random)
+```
+
+Overall models are not ideal and data requires more sophisticated model
+
+# Simple Moving Average
+
+ Smoothing: getting the dataset closer to the center by evening out the highs and the lows => decreasing the impact of extreme values
+ 
+ Classic smoother: simple moving average
+ 
+ - Widely used in science and finance (trading)
+ 
+ How does a SMA work?
+ 
+ - Define the number of observations to use and take their average
+ - Period = successive values of a time series
+ 
+```{r using ttr library}
+#library("TTR")
+# in order to identify trends, we can use smoothers
+# like a simple moving avg
+# n identifies the order of the SMA - you can experiment with this parameter
+```
+
+```{r using simple moving average}
+x=c(1,2,3,4,5,6,7)
+
+SMA(x, n=3)
+```
+```{r}
+lynxsmoothed = SMA(lynx, n=4); lynxsmoothed
+
+plot(lynx)
+
+plot(lynxsmoothed)
+#higher n woudl give me a smoother result
+
+# This method work best with non-seasonal dat and is ideal for getting the general trend and removing white noise
+#Basically, the higher n is the less white noice you will encounter in your data
+```
+
+
+# Exponential Smoothing with ETS
+
+Describe the time series with three parameters
+
+- Error - additive, multiplicative (x>0)
+- Trend - non-present, additive, multiplicative
+- Seasonality - non-present, additive, multiplicative
+
+Values are either summed up in additive model, multiplied in multiplicative model or omitted
+
+**R functions:**
+
+- Simple exponential smoothing - ses(): for datasets withou trend and seasonality
+- Holt linear exponential smoothing model - holt(): for datasets with a trend and without seasonality
+  - Argument 'damped' to damp down the trend over time
+- Holt-Winters seasonal exponential smoothing - hw(): for data with trend and seasonal component + a damping parameter
+
+=> Above models are set manually
+
+Automated model selection via ets() (also library 'forecast')
+Model selection based on information criteria
+
+Smoothing coefficients to manage the weighting based on the timestamp
+
+  - Reactive model relies heavily on recent data - high coefficient ~1
+  - Smooth model - low coefficient ~0 (which means a more round curves with even older data being quite important for the forecasted values)
+  
+**Coefficients:**
+
+Alpha: Initial level
+Beta: trend
+Gama: seasonality
+Damped parameter
+
+Required argument for ets():data
+Argument 'model' for pre-selecting a model
+
+  - Default 'ZZZ': auto-selection of the three components; Additive 'A', multiplicative 'M', non-present 'N'
+  - Coefficients and boundaries can also be pre-set
+  
+```{r creating etsmodel}
+#library(forecast)
+etsmodel = ets(nottem); etsmodel
+
+# ets(A,N,A) => 3 components (error, trend and seasonality)
+
+#Smoothing coefficiets => closer they are to 1, the more the model relies on recent data, closer to 0, the more smooth out model
+
+# Alpha = 0.0246; gamma is almost 0
+```
+
+```{r plotting the model vs original}
+plot(nottem, lwd=3)
+  lines(etsmodel$fitted, col="red")
+  
+# The fitted model is ploted on the top of the original dataset; the fitted values are quite close to dataset - quite a good model
+
+# Looking at Initial states:
+# l = we need the initial level to calculate the error rate
+# s = 12 months' we need seasonal values to calculate each initial seasonal state
+# sigma = accuracy indicator of the model
+# 3 values (AIC, AICc, BIC) = basically the same as with an ARIMA model, model quality indiator and quality comparisson indicators
+
+```
+
+```{r plotting a forecast of etsmodel}
+plot(forecast(etsmodel, h=12))
+# extra year in blue with prediction interval
+```
+
+```{r plotting a forecast of etsmodel with confidence interval}
+plot(forecast(etsmodel, h=12, level=95))
+```
+
+```{r manual setting of ets model}
+etsmodmult = ets(nottem, model = "MZM"); etsmodmult
+# multiplicative model; parameters have been adjusted, looking at last 3 indicators, we can see that the values are higher by approx. 30 points indicating that this model is not as good as previous one.
+```
+
+```{r plotting a final model}
+plot(nottem, lwd =3)
+lines(etsmodmult$fitted, col="red")
+```
+
+# ARIMA Model
+
+Autoregressive Integrated Moving Average
+Modeling univariate time series
+Crucial tool for an analyst
+
+## Theory
+- Following code and text is focus on univariate, non-seasonal ARIMA Models
+
+*ARIMA (p,d,q)*
+
+ARIMA contains 3 elements =>
+
+- AR - Autoregressive part: p
+- I - Integration, degree of differencing: d
+- MA - Moving average part: q
+  
+Parameters: Integers denoting the grade or order of the three parts
+
+Calculating the AR and MA parts requires a stationary time series = Differencing done by the model function or manual differencing with diff(), part of element d
+
+How to calculate the three parameters?
+
+arima() 
+
+  => estimating the parameters manually by using ACF and PACF plots (R Base)
+
+auto.arima()
+
+  => R calculates the parameters automatically and chooses a suitable model (library forecast)
+  
+**How to read an ARIMA model?**
+
+Summation of lags = autoregressive part
+Summation of forecasting errors = moving average part
+Coefficient: Determines the importance of a specific lag
+
+AR(1) or ARIMA (1,0,0): first order(lag) of AR
+AR(2) or ARIMA (2,0,0): second order of AR
+MA(1) or ARIMA (0,0,1): first order of MA
+
+*AR(1) or ARIMA (1,0,0)*
+
+Yt=c+ $\theta$ Yt-1+et
+
+The observed value(Yt) at time point t consists of
+
+  - the constant (c) plus
+  - the value of the previous time point (Yt-1) multiplied by a coefficient $/theta$ plus
+  - the error term of time point t (et)
+  
+*ARMA(1,1) or ARIMA (1,0,1)* => model was extended with a forecast error term
+
+Yt = c + $\theta$ Yt-1 + $\theta$ et-1 + et
+
+Extra step: Forecast error term for the first lag (et-1) multiplied by the coefficient $\theta$
+Forecast error at t: The difference between the actual and the forecast value
+
+*ARIMA (0,1,0)*
+
+Random walk: the mean is not constant, which is required for a forecast
+Stationary dataset: dataset with constant mean
+
+Differencing:
+  Yt - Yt-1 = c + et
+  
+The expected value (Yt) minus the previous one (Yt-1) equals the constant (c) multiplied by the error term (et) at time point t
+
+## Auto.arima
+
+It is well known and popular, part of forecast library
+It can have low quality and performance, danger of producing uninformed, low quality models
+However, it is good starting point to  time series analysis
+
+```{r plotting lynx data and confirming autoregression}
+plot(lynx)
+# we can see cyclical pulse, no seasonality, an autoregressive dataset (Lynx trappings of prior years influence the numbe uynx caught in the following years)
+
+#library(forecast)
+
+# How to confirm autoregression?
+tsdisplay(lynx) # see ACF plot
+
+# looking at first plot, do we need differencing with parameter d? We need differencing when time series is on stationary. That means that statistical properties change over time in the plot. There is no indication of that in the plot.
+
+# It will be totally plausible if the model does not contain a D parameter. I can always use ADF test for stationarity.
+```
+
+```{r using a simple arima}
+auto.arima(lynx) # the basic version
+```
+
+```{r listing alternatives}
+auto.arima(lynx, trace=T)
+# gives me a list of alternative models and I can choose the one with lowest value
+```
+
+ARIMA(p,d,q) (P,D,Q)
+
+=> first part is standard model parameters, second part is parameters for the seasonal components
+
+```{r}
+auto.arima(lynx, trace=T,
+           stepwise = F,
+           approximation = F)
+```
+
+## ARIMA Model Calculations
+
+- reproducing an ARIMA model manually
+- model ARIMA (2,0,0) (same as ARMA(2,0) or AR(2))
+
+Autoregressive model: explains the future by regressing on the past
+
+- goes back in time
+- checks its own results
+- does a forecast
+  
+```{r creating an arima model}
+myarima = arima(lynx, order = c(2,0,0)); myarima
+```
+
+formula: 
+*Yt = c + $\theta$ Yt-1 + $\theta$ Yt-2 + et*
+
+OR
+
+Present year's catches:
+
+*Constant (Calculated by R) + Coefficient1 x Last year's catches (Calculated by R) + Coefficient2 x Prior year's catches (Calculated by R) + Current error term*
+
+t = time in years
+Y = Amount of lynx trapped per year
+
+```{r checking last values}
+# all the y values are available in the lynx dataset, we want to explain the last observed values
+tail(lynx) #last value is 3396 lynx caught in 1934; year before that yt-1
+
+# looking back at myarima model, I can see coefficients for both years
+# Yt = c + $\theta$ Yt-1 + $\theta$ Yt-2 + et
+# 3396 = c + 1.147 * 2657 - 0.5997 * 1590 + et
+# Intercept is not equal to constant but to mean; mean of the model is 1545.4458
+# We have to work with mean differently than we would work with standard constant
+  # Yt - $\mu$ = $\theta$ 1(Yt-1 - $\mu$) + $\theta$ 2(Yt-2 - $\mu$) + et
+# 3396 - 1545.45 = 1.147 * (2657 - 1545.45) - 0.599*(1590-1545.45) + et
+```
+
+
+```{r checking residuals from arima}
+residuals(myarima) # we are looking at 601.84
+# 3396 - 1545.45 = 1.147 * (2657 - 1545.45) - 0.599*(1590-1545.45) + 601.84
+# 1850.55 = 1850.55 => both sides are same, it shows that the equation is correct
+```
+
+```{r checking a moving average}
+#looking at moving average model
+
+myarima = arima(lynx, order = c(0,0,2)); myarima
+residuals(myarima)
+#Yt = c + $\theta$ et-1 + $\theta$ et-2 + et
+#3396 - 1545.36 = 1.1407*844.7 + 0.469 * 255.9 + 766.83
+
+
+#Check the equation for MA(2)
+#1850.933 = 1850.63
+# tiny differences in decimals don't matter
+# calculation.png shows difference in formula between two models
+```
+
+## ARIMA Based Simulations
+
+R base: arima.sim()
+  => Generates time series based on a provided ARIMA model
+
+A key step before you begin with any sort of simulations;
+  => Make sure that the results are reproducible
+  
+```{r}
+set.seed(123) #for reproduction
+```
+
+```{r}
+asim <- arima.sim(model =list(order=c(1,0,1),
+                             ar = c(0.4),
+                             ma = c(0.3)), n = 1000) + 10
+
+plot (asim)
+# number of observation of the produced time series
+# model needs to be a list with the model components:
+  # Order of the model
+  # AR parameter coefficient
+  # MA parameter coefficient
+# Specifying a mean => it can be any other number value
+```
+
+```{r}
+#library(zoo)
+plot(rollmean(asim, 50)) # 50 days moving average
+plot(rollmean(asim, 25))
+```
+
+###Stationarity and Autocorrelation
+```{r warning=FALSE}
+library(tseries)
+library(forecast)
+
+adf.test(asim)
+# test is significant, stationarity
+tsdisplay(asim)
+# significance at first two lags
+```
+
+```{r}
+# using auto.arima to see if it confirms parameters
+auto.arima(asim, trace = T,
+           stepwise = F,
+           approximation = F)
+# confirmed model is ARIMA (1,0,1), ar is 0.34 and ma is 0.31, mean 10, overall we get the result which is close to what it should be
+```
+
+## Manual ARIMA Parameter Selection
+
+ARIMA => 
+
+- Manual Parameter Selection 
+  - arima() R Base
+  - Arima() forecast
+- Automated Parameter Selection
+  - auto.arima() forecast
+
+If there is a middle parameter D in your model, the output of the function will not provide a constant or a non zero mean for that matter. Therefore, it is better to use Arima() for forecast.
+
+```{r}
+#Testing for stationarity - adf.test() from library tseries
+#esting for autoregression - acf() and pacf() plots from R Base, OR tsdisplay() from library forecast
+
+#library(tseries)
+
+adf.test(lynx)
+
+#stationarity and it means that we can set the middle parameter D to 0. ARIMA (p,0,q)
+
+#library(forecast)
+
+tsdisplay(lynx)
+
+# Plot ACF tells me about Lags for MA - Parameter 'q' and plot PACF tells me about lags for AR - Parameter 'p'
+```
+
+```{r}
+myarima <- Arima(lynx, order = c(2,0,0))
+# checking results - aicc num 1878
+
+tsdisplay(lynx)
+
+checkresiduals(myarima)
+# residuals should be random and normally distributed; ACF shows significance at lags 7,9,19. This shows that we can still adjust the parameters based on the results.
+```
+
+```{r}
+myarima <- Arima(lynx, order = c(3,0,0))
+# checking results - aicc num 1875
+
+checkresiduals(myarima)
+# still no improvement
+
+myarima <- Arima(lynx, order = c(4,0,0))
+# checking results - aicc num 1881
+
+checkresiduals(myarima)
+# still no improvement
+```
+
+## Example MA time series
+
+```{r warning=FALSE}
+set.seed(123) # for reproduction
+
+#Simulation
+myts <- arima.sim(model =list(order=c(0,0,2),
+                             ma = c(0.3, 0.7)), n = 1000) + 10
+
+adf.test(myts) #stationarity, significant
+
+tsdisplay(myts) # Autocorrelation
+
+# Arima
+myarima <- Arima(myts, order = c(0,0,2)) #ACF plot looked better and we are focusing on first two lags
+# aicc is 2828
+checkresiduals(myarima)
+# normally distributed residuals, autocorrelation is ok, only 1 lag out of 20 is out
+
+# Can this be improved?
+auto.arima(myts, trace = T,
+           stepwise = F,
+           approximation = F)
+# aicc is 2830; not improved
+```
+
+# Forecasting an ARIMA model
+Once I decided on my model, I can move to forecasting
+
+```{r}
+myarima <- auto.arima(lynx, stepwise = F, approximation = F)
+```
+
+
+```{r}
+arimafore <- forecast(myarima, h=10) #forecast of 10 years
+
+plot(arimafore) # with 90 and 95% intervals
+```
+
+```{r}
+# see the forecaste values
+arimafore$mean
+```
+
+```{r}
+# zoom-in, plot last observations and the forecast
+plot(arimafore, xlim=c(1930,1944))
+```
+
+
+```{r}
+#ets for comparison
+
+myets <- ets(lynx)
+
+etsfore <- forecast(myets, h=10)
+```
+
+```{r}
+library(ggplot2)
+# plotting two models
+autoplot(lynx)+
+  forecast::autolayer(
+    etsfore$mean,
+    series = 'ETS model') +
+  forecast::autolayer(
+    arimafore$mean,
+    series = 'ARIMA model')+
+  xlab('year') +
+  ylab ('Lynx Trappings') +
+  guides(
+    colour = guide_legend(
+      title = 'Forecast Method')) +
+  theme(
+    legend.position = c(0.8, 0.8))
+```
+
+# ARIMA with Explanatory Variables
+
+
+What is an explanatory variable? It is a second variable basides the variable to be modeled. Also called independent variable or predictor. Predictor can be of various classes: numberic, integer, character, boolean.
+
+Previous forecasting was based on simple autoregressive model withou taking other factors into account.
+
+The forecaster needs to know about upcoming events (such as speech of central bank to predict prices on stock market) or make forecasts on the explanatory variable.
+
+```{r warning=FALSE}
+#library(readr)
+cyprinidae <- read_csv("~/Desktop/cyprinidae.csv")
+
+cols(
+  X1 = col_integer(),
+  concentration = col_double(),
+  predator_presence = col_logical()
+)
+```
+
+Research: Do cyprinid fish answer with a hormonal reaction to the presence of a predatory catfish?
+
+## Plot the data
+
+```{r}
+#library(ggplot2)
+ggplot(cyprinidae, aes(y=concentration, x=X1))+ #X1 is time identifier
+  geom_point(aes(color=predator_presence))
+  # blue dots shows time where predictor the  catfish were present
+```
+
+Some functions of the 'forecast' package have the argument 'xreg' available which allows us to include an explanatory variable in the model e.g. auto.arima(), nnetar()
+
+## Convert the variables into time series
+```{r}
+x= ts(cyprinidae$concentration)
+y= cyprinidae$predator_presence
+```
+
+## Arima model creation
+```{r}
+library(forecast)
+mymodel = auto.arima (x, xreg = y, stepwise = F, approximation = F)
+mymodel
+```
+
+## Quick check of model quality
+```{r}
+checkresiduals(mymodel)
+```
+All the patterns shoud be captured by the model, only randomness should stay in the residuals.
+
+## Expected predator presence at future 10 times and getting a forecast based on future predator
+
+```{r}
+y1 = c(T,T,F,F,F,F,T,F,T,F)
+
+plot(forecast(mymodel, xreg = y1))
+
+# to zoom in on forecast
+plot(forecast(mymodel, xreg = y1), xlim=c(230,260))
+
+# we gat a baseline of about 10 nanograms for the time points when no predator was present, and we get approximately 270 nanograms for each time point where the predator is present
+
+# the quality of the model improves tremendously with the incorporation of trhe explanatory variable
+```
+

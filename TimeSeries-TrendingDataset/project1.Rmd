@@ -1,0 +1,196 @@
+---
+title: "Project 1: Trending dataset"
+output: pdf_document
+---
+```{r read libraries, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(forecast)
+library(ggplot2)
+```
+
+```{r import data, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+#70.19999695	71.09999847	71.69999695	72.30000305	73.09999847	72.90000153	74.40000153	75.40000153	76	76.90000153	77.40000153	78.19999695	78.90000153	78.69999695	79	78	80	79.80000305	80.30000305	80.5	80.69999695	81.09999847	81.5	81.90000153	82.30000305	82.69999695	83.19999695	83.5
+
+# Import with scan
+singapur = c(70.19999695,71.09999847,71.69999695,72.30000305,73.09999847,72.90000153,74.40000153,75.40000153,76,76.90000153,77.40000153,78.19999695,78.90000153,78.69999695,79,78,80,79.80000305,80.30000305,80.5,80.69999695,81.09999847,81.5,81.90000153,82.30000305,82.69999695,83.19999695,83.5)
+```
+
+```{r conversion to time series}
+singapur = ts(singapur, start = 1980)
+```
+
+```{r plot the dataset, echo=TRUE}
+plot(singapur, ylab="Labour Force Participation Rate 25 - 54")
+# clearly trending dataset
+# Model cannot exceed 100%
+```
+
+
+**Potential models**
+There are two models which can be considered:
+
+- Linear Trend Model with holt()
+  - With Damping Parameter
+  - Without Damping Parameter
+- ARIMA model
+
+# Exponential smoothing
+
+Exponential smoothing with library(forecast):
+
+- Simple exponential smoothing: ses()
+- Holt's linear trend model: holt() + damped
+- Holt-Winters seasonal method: hw()
+- Automated exponential smoothing: ets()
+
+ses() can't be used in this case because dataset is trending, Holt-Winters seasonal method can't be used because dataset is not showing a seasonal pattern
+
+**How does the Holt Linear Trend Model Work?**
+
+*Estimated forecast value at t time point $Yth/t$= Level value at t time point ($l_t$) + Trend value at t time point mulitpled by h ($hb_t$) (h = number of steps we want to go to future)*
+
+**Smoothing Parameters of a Holt Linear Trend Model**
+
+Alpha = Smoothing parameter for the level, if only recent data is required for the label value
+
+Beta =  tells the modelif only recent data is required for the trend
+
+Gamma is omitted here as there is no seasonality
+
+**0 < X < 1**
+
+Closer to 0:Smooth model, older data is considered too
+Closer to 1: Reactive model, heavily relies on recent data
+
+For example, if I have a beta parameter close to 0, then the slope of the trend stays constant, if it's closer to 1, it means that the slope of the trend can change on short notice or just two or three observations
+
+**Theoretical Example of holt() Function**
+
+library(forecast)
+holt(data, h=5); forecast legth of 5 years
+
+```{r holt model}
+holttrend =  holt(singapur, h=5)
+# alpha = 0.6378, beta = 0.121; 
+# This indicates that the trend which is basically the slope of the time series plot is fairly constanst
+```
+
+```{r viewing holt model}
+summary(holttrend)
+# shows forecasted 5 years from 2008 to 2012
+# show 2 confidence intervals (80 and 95%)
+```
+
+```{r plot holt model}
+plot(holttrend)
+# blue are forecasted 5 years
+# slope of the forecasted period is nearly the same as the slope between 1998 onwards
+```
+
+The nature of this particular data contains a classic problem. The trend cannot continue indefinitely.
+
+It is impossible for a labor force participation rate to cross the 100% mark.
+
+This fact needs to be incorporated into the model. This can be done by adding damped argument to holt() function.
+
+**0 < $\varphi$ < 1**
+
+If the  $\varphi$ is close to 1, it is the same as a standard holt linear model
+
+If the  $\varphi$ is close to 0, than the curve gets flat faily soon
+
+In practice, the parameter  $\varphi$ is set somewhere between 0.8 and 0.95
+
+**Damping The Holt Linear Trend Model**
+damped = TRUE
+
+*R calculates the value of  $\varphi$ automatically and damps the model accordingly*
+
+damped =TRUE
+phi = 0.8
+
+*R damps the model by the specified value of  $\varphi$*
+
+```{r example of holt model with auto generated phi}
+# example of holt model with auto generated phi
+plot(holt(singapur, h=15, damped=T))
+```
+
+```{r to see the generated value for phi}
+# to see the generated value for phi
+summary(holt(singapur, h=15, damped=T))
+```
+
+```{r example of holt model with manual setting of phi}
+# example of holt model with manual setting of phi
+plot(holt(singapur, h=15, damped=T, phi=0.8))
+```
+
+# ARIMA model
+
+AR => Autoregressive (Seasonality, trend)
+
+I => Integration (Differencing of the dataset)
+
+MA => Moving Average (Movement around a constant mean)
+
+AR is usually present where trend is in dataset, MA is where the line is flatter
+
+As there is no seasonality, no differencing is needed (I)
+
+ARIMA parameters: p, q, P
+
+```{r autoarima}
+# Generate auto arima; dataset should be univariate time series
+singapurarima = auto.arima(singapur)
+```
+
+```{r summary of autoarima}
+# summary
+summary(singapurarima)
+# result is ARIMA(1,1,0) with drift
+```
+
+```{r plot arima model}
+#plot arima with 5 years forecast
+plot(forecast(singapurarima, h=5))
+# at this stage, the forecast is not ideal because in longer horizont, it will get over 100%
+```
+```{r exact calculation}
+auto.arima(singapur, stepwise=F, approximation=F)
+# This method is same as above but takes longer to process, is more accurate and can produce different forecast; however in our scenario, forecast is the same
+```
+
+# Coparison Plot
+
+Prepare my three forecast models which I want to plot:
+
+```{r forecast models}
+holttrend = holt(singapur, h=10)
+holtdamped = holt(singapur, h=10, damped = T)
+arimafore = forecast(auto.arima(singapur), h=10)
+```
+
+```{r forecast lines as comparisson}
+autoplot(singapur)+
+  forecast:: autolayer(holttrend$mean, series = "Holt Linear Trend")+
+  forecast:: autolayer(holtdamped$mean, series = "Holt Damped Trend")+
+  forecast:: autolayer(arimafore$mean, series = "ARIMA")+
+  xlab("year") + ylab("Labour Force Participation Rate Age 25 - 54")+
+  guides(colour = guide_legend(title="Forecat Method"))+
+  theme(legend.position = c(0.8,0.2))+
+  ggtitle("Singapur")+
+  theme(plot.title=element_text(family="Times", hjust=0.5, color="blue", face="bold", size=15))
+```
+
+```{r fitted lines}
+autoplot(singapur)+ geom_line(size=2)+
+  forecast:: autolayer(holttrend$fitted, series = "Holt Linear Trend")+
+  forecast:: autolayer(holtdamped$fitted, series = "Holt Damped Trend")+
+  forecast:: autolayer(arimafore$fitted, series = "ARIMA")+
+  xlab("year") + ylab("Labour Force Participation Rate Age 25 - 54")+
+  guides(colour = guide_legend(title="Forecat Method"))+
+  theme(legend.position = c(0.8,0.2))+
+  ggtitle("Singapur")+
+  theme(plot.title=element_text(family="Times", hjust=0.5, color="blue", face="bold", size=15))
+# We can see that blue line adjust slowlier to changes
+```

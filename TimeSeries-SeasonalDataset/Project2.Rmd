@@ -1,0 +1,181 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Project 2: Seasonal Dataset
+
+1. No trend in present
+
+  - Constant mean
+
+2. Seasonality is present
+
+  - Seasonal decomposition
+  - Seasonal ARIMA
+  - Exponential smoothing
+  
+3. Presence of negative values
+
+  - Multiplicative exponential smoothing models are excluded
+  
+4. Stable amplitude (up and down movement)
+
+## Getting data
+
+```{r libraries}
+library(readxl)
+library(forecast)
+library(ggplot2)
+```
+```{r importing dataset}
+# for time series, no row or column IDs are included and data needs to be sorted from start to end e.g. from 2000 to 2008
+# we need to work with vector, not dataframe
+mydata=scan()
+
+# -0.31	0.41	0.51	-0.2	0.61	0.2	0.61	-0.3	-0.1	-0.2	-0.51	0.41
+# -0.51	0.61	-0.2	0.1	-0.1	0.3	0	0.2	-0.3	0	-0.1	0.81
+# -0.6	0.4	0.5	0.1	-0.1	0	0.2	0.1	-0.1	0.1	0.1	0.6
+# -0.2	0.6	0.59	0	0	0.1	0.2	0.1	0.2	0	0.2	0.19
+# -0.1	0.68	0.58	-0.19	0	-0.19	0.39	0.38	0.1	0	0.1	0.29
+# -0.48	0.57	0.48	-0.47	0.38	0.09	0.47	0	0	-0.19	0.19	0.38
+# -0.56	0.47	0.28	-0.19	-0.09	0.28	0.28	0	0	-0.28	0	0
+# -1.03	0.85	0.47	0	0.09	-0.09	0.19	0	-0.19	0	0.09	-0.09
+# -0.84	0.38	0.75	-0.37	0.28	0.09	0.28	0	0.09	0.19	0.09	0.74
+# -0.64	0.65	0.18	0	-0.18	0.18	0.37	0.09	0.09	0		
+```
+
+```{r plot the data before converting}
+plot.ts(mydata)
+```
+
+```{r convert to timeseries}
+germaninfl = ts(mydata, start=2008,frequency=12)
+# Example: ts(mydata, start = c(2008,3), frequency =12); seasonal dataset needs frequency
+```
+
+```{r plot timeseries}
+plot(germaninfl)
+
+```
+
+Project Outline:
+
+- Seasonal Decomposition
+- Exponential Smoothing
+- Seasonal ARIMA
+- Cross Validation
+
+# Seasonal Decomposition
+
+An old analytical method
+
+Dividing the data into its components:
+
+- Trend
+- Seasonality
+- Remainder / White noise
+
+Models:
+
+- Additive
+- Multiplicative
+
+If seasonal components stays constant over several cycles, it is best to opt for additive decomposition.
+
+Model is easy to use and is simple. Good starting point for further data exploration.
+
+Disadvatages:
+
+- First few values are NA (because it uses moving averages)
+- Slow to catch fast rises
+- Adopts a constant seasonal component
+
+** decompose method**
+
+```{r seasonal decomposition with decompose}
+decompose(germaninfl)
+```
+
+```{r plot decompose}
+plot(decompose(germaninfl))
+```
+
+First plot on top shows the original dataset. Then we get trend component, next we see how seasonal part looks and the rest is white noice.
+
+It shows that there is no trend in this dataset. It goes up and down.
+
+We can see clearly seasonal component with peaks in Febrary and end of the year.
+
+**Another method:**
+
+X11, Seats or STL
+
+- No NA Values
+- The seasona part can be adjusted over time
+
+Using stl, it is robust towards outliers, suited towards an additive model (for multiplicative models data transformation is needed), seasonal and trend cycles may change over time
+
+Plotting seasonal decomposition with stl:
+```{r seasonal decomposition with stl}
+plot(stl(germaninfl, s.window=7))
+# how many seasonal cycles are needed to calculate changes
+```
+
+Seasonal decomposition adn forecasting with stl:
+```{r seasonal decomposition and forecasting with stl}
+plot(stlf(germaninfl, method="ets"))
+# ets = method for forecasting part' automated exponential smoothing method; alternatively arima, naive method or R.W. drift can be used
+```
+
+Comparison with standard ets forecast:
+```{r comparison with a standard ets forecast}
+plot(forecast(ets(germaninfl), h=24))
+```
+
+Looking at both methods, peaks are higher with first method.
+
+First model is ETS(A,N,N) which means additive season, no tren and no error or remainder.
+
+Second model is ETS(A,N,A) which is additive seasonality, no trend but additive error.
+
+** Autoplot model:**
+
+```{r using autoplot ets}
+# library(ggplot2)
+autoplot(stlf(germaninfl, method="ets"))
+```
+
+# Seasonal ARIMA
+
+Seasonal ARIMA models have two sets of parameters: A regular set and a sexond set for the seasonal part
+
+ARIMA (p,d,q) (P,D,Q) [m]
+
+p,d,q => Non-seasonal part
+P,D,Q => Seasonal part
+m => Frequency
+
+```{r auto arima}
+auto.arima(germaninfl, stepwise = T, approximation = F, trace = T)
+# ARIMA (1,0,2)(0,1,1)[12]
+# for non-seasonal part, we have one order of autocorrelation, no differencing and 2 orders of moving averages; the seasonal part test one step of differencing and one order of moving average 
+# we have 12 observations per interval (year)
+
+# the corresponding coefficients are:
+# ARIMA (1,0,2) => autoregressive coefficient 1 is -0.79, the moving average 1 is 0.7786, moving average 2 is 0.2115
+
+# (0,1,1) => seasonal moving average 1(last one) is -0.76
+```
+
+```{r getting object}
+germaninflarima = auto.arima(germaninfl, stepwise = T, approximation = F, trace = T)
+```
+```{r plot arima model}
+forec = forecast(germaninflarima)
+plot(forec)
+```
+
+It is good to compare Seasonal ARIMA to ETS Model or Holt-Winters Model.
+
+
